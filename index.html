@@ -58,7 +58,14 @@ button:hover {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
+/*fadeout*/
 
+  .fade-out {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.3s ease;
+}
+  
 /* SPIELER */
 .player-grid {
   display: flex;
@@ -155,7 +162,15 @@ button:hover {
 <h2>📊 Rangliste</h2>
 <div id="chart"></div>
 
+<div id="undoBar" style="display:none; position:fixed; bottom:10px; left:50%; transform:translateX(-50%); background:#333; padding:10px; border-radius:8px;">
+  Aktion rückgängig?
+  <button onclick="undo()">Undo</button>
+</div>
+
+  
 <script>
+  let lastDeleted = null;
+
 let teams = JSON.parse(localStorage.getItem("teams")) || [];
 let matches = JSON.parse(localStorage.getItem("matches")) || [];
 
@@ -167,6 +182,42 @@ function toggleAdmin() {
   document.getElementById("adminArea").style.display = admin ? "block" : "none";
 }
 
+//Rückgängig
+  function showUndo() {
+  const bar = document.getElementById("undoBar");
+  bar.style.display = "block";
+
+  setTimeout(() => {
+    bar.style.display = "none";
+    lastDeleted = null;
+  }, 5000);
+}
+
+  function undo() {
+  if (!lastDeleted) return;
+
+  if (lastDeleted.type === "team") {
+    teams.splice(lastDeleted.index, 0, lastDeleted.data);
+  }
+
+  if (lastDeleted.type === "player") {
+    teams[lastDeleted.teamIndex].members.splice(
+      lastDeleted.playerIndex, 0, lastDeleted.data
+    );
+  }
+
+  if (lastDeleted.type === "match") {
+    matches.splice(lastDeleted.index, 0, lastDeleted.data);
+  }
+
+  saveData();
+  renderTeams();
+  renderMatches();
+
+  document.getElementById("undoBar").style.display = "none";
+  lastDeleted = null;
+}
+  
 // SPIELER
 function addPlayerInput() {
   const name = document.getElementById("playerInput").value.trim();
@@ -213,10 +264,27 @@ function addTeam() {
 }
 
 function deleteTeam(i) {
-  teams.splice(i,1);
-  saveData();
-  renderTeams();
+  if (!confirm("Team wirklich löschen?")) return;
+
+  const element = document.querySelectorAll(".card")[i];
+  if (element) {
+    element.classList.add("fade-out");
+  }
+
+  lastDeleted = {
+    type: "team",
+    data: teams[i],
+    index: i
+  };
+
+  setTimeout(() => {
+    teams.splice(i,1);
+    saveData();
+    renderTeams();
+    showUndo();
+  }, 300);
 }
+
 
 function saveData() {
   localStorage.setItem("teams", JSON.stringify(teams));
@@ -354,25 +422,41 @@ function calculateResults() {
 }
 ///löschen von Paarungen
 
-  function deleteMatch(index) {
+function deleteMatch(index) {
+  if (!confirm("Spiel wirklich löschen?")) return;
+
+  lastDeleted = {
+    type: "match",
+    data: matches[index],
+    index
+  };
+
   matches.splice(index, 1);
   saveData();
   renderMatches();
+  showUndo();
 }
 
 
   /////spieler löschen
-  function removePlayer(teamIndex, playerIndex) {
+ function removePlayer(teamIndex, playerIndex) {
+  if (!confirm("Spieler wirklich löschen?")) return;
+
   const player = teams[teamIndex].members[playerIndex];
 
-  // Würfe entfernen
-  delete teams[teamIndex].throws[player.id];
+  lastDeleted = {
+    type: "player",
+    data: player,
+    teamIndex,
+    playerIndex
+  };
 
-  // Spieler entfernen
+  delete teams[teamIndex].throws[player.id];
   teams[teamIndex].members.splice(playerIndex, 1);
 
   saveData();
   renderTeams();
+  showUndo();
 }
 
 
