@@ -9,7 +9,12 @@ body { font-family: Arial; margin: 20px; }
 input, button { margin: 5px; padding: 5px; }
 .card { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
 .admin { background: #ffe0e0; padding: 10px; }
-.small { font-size: 12px; color: #666; }
+
+.bar {
+  height: 20px;
+  background: steelblue;
+  margin-top: 5px;
+}
 </style>
 
 </head>
@@ -17,15 +22,15 @@ input, button { margin: 5px; padding: 5px; }
 
 <h1>Boßeln Turnier</h1>
 
-<button onclick="toggleAdmin()">🔑 Admin umschalten</button>
+<button onclick="toggleAdmin()">🔑 Admin</button>
 
 <div id="adminArea" style="display:none;" class="admin">
 <h2>Team anlegen</h2>
-<input id="teamName" placeholder="Teamname">
-<br>
+
+<input id="teamName" placeholder="Teamname"><br>
 
 <input id="playerInput" placeholder="Spielername">
-<button onclick="addPlayerInput()">Spieler hinzufügen</button>
+<button onclick="addPlayerInput()">+ Spieler</button>
 
 <div id="playerList"></div>
 
@@ -42,6 +47,9 @@ input, button { margin: 5px; padding: 5px; }
 <h2>Ergebnisse</h2>
 <div id="results"></div>
 
+<h2>📊 Rangliste</h2>
+<div id="chart"></div>
+
 <script>
 let teams = JSON.parse(localStorage.getItem("teams")) || [];
 let matches = JSON.parse(localStorage.getItem("matches")) || [];
@@ -55,15 +63,14 @@ function toggleAdmin() {
   document.getElementById("adminArea").style.display = admin ? "block" : "none";
 }
 
-// TEMP SPIELER HINZUFÜGEN
+// SPIELER TEMP
 function addPlayerInput() {
   const input = document.getElementById("playerInput");
   const name = input.value.trim();
   if (!name) return;
 
-  // einzigartig machen
   tempPlayers.push({
-    name: name,
+    name,
     id: name + "_" + Date.now()
   });
 
@@ -90,7 +97,7 @@ function removeTempPlayer(i) {
   renderTempPlayers();
 }
 
-// TEAM ERSTELLEN
+// TEAM
 function addTeam() {
   const name = document.getElementById("teamName").value.trim();
   if (!name || tempPlayers.length === 0) return;
@@ -101,17 +108,17 @@ function addTeam() {
     throws: {}
   });
 
-  document.getElementById("teamName").value = "";
   tempPlayers = [];
-  renderTempPlayers();
+  document.getElementById("teamName").value = "";
 
   saveData();
+  renderTempPlayers();
   renderTeams();
 }
 
 // TEAM LÖSCHEN
-function deleteTeam(index) {
-  teams.splice(index, 1);
+function deleteTeam(i) {
+  teams.splice(i, 1);
   saveData();
   renderTeams();
 }
@@ -122,26 +129,24 @@ function saveData() {
   localStorage.setItem("matches", JSON.stringify(matches));
 }
 
-// TEAMS ANZEIGE
+// TEAMS
 function renderTeams() {
   const div = document.getElementById("teams");
   div.innerHTML = "";
 
-  teams.forEach((team, tIndex) => {
+  teams.forEach((team, i) => {
     let html = `<div class="card">
       <b>${team.name}</b>
-      ${admin ? `<button onclick="deleteTeam(${tIndex})">🗑️</button>` : ""}
+      ${admin ? `<button onclick="deleteTeam(${i})">🗑️</button>` : ""}
       <br><br>`;
 
-    team.members.forEach(player => {
-      const val = team.throws[player.id] || "";
-      html += `
-        ${player.name}: 
+    team.members.forEach(p => {
+      const val = team.throws[p.id] || "";
+      html += `${p.name}: 
         <input type="number" value="${val}"
-        ${!admin ? "disabled" : ""}
-        onchange="setThrow(${tIndex}, '${player.id}', this.value)">
-        <br>
-      `;
+        ${!admin ? "disabled":""}
+        onchange="setThrow(${i}, '${p.id}', this.value)">
+        <br>`;
     });
 
     html += "</div>";
@@ -158,18 +163,30 @@ function setThrow(teamIndex, playerId, value) {
   calculateResults();
 }
 
-// MATCHES
+// MATCHES mit 3er Logik
 function generateMatches() {
   const shuffled = [...teams].sort(() => Math.random() - 0.5);
   matches = [];
 
-  for (let i = 0; i < shuffled.length; i += 2) {
-    if (shuffled[i + 1]) {
+  let i = 0;
+
+  while (i < shuffled.length) {
+    if ((shuffled.length - i) === 3) {
       matches.push({
-        a: shuffled[i].name,
-        b: shuffled[i + 1].name,
+        teams: [
+          shuffled[i].name,
+          shuffled[i+1].name,
+          shuffled[i+2].name
+        ],
         start: ""
       });
+      break;
+    } else {
+      matches.push({
+        teams: [shuffled[i].name, shuffled[i+1].name],
+        start: ""
+      });
+      i += 2;
     }
   }
 
@@ -177,8 +194,9 @@ function generateMatches() {
   renderMatches();
 }
 
-function setStart(index, value) {
-  matches[index].start = value;
+// STARTZEIT
+function setStart(i, value) {
+  matches[i].start = value;
   saveData();
 }
 
@@ -190,26 +208,29 @@ function renderMatches() {
   matches.forEach((m, i) => {
     div.innerHTML += `
       <div class="card">
-        ${m.a} vs ${m.b}<br>
+        ${m.teams.join(" vs ")}<br>
         Startzeit:
         <input type="time" value="${m.start || ""}"
-          ${!admin ? "disabled" : ""}
-          onchange="setStart(${i}, this.value)">
+        ${!admin ? "disabled":""}
+        onchange="setStart(${i}, this.value)">
       </div>
     `;
   });
 }
 
-// ERGEBNISSE
+// ERGEBNISSE + CHART
 function calculateResults() {
   const div = document.getElementById("results");
+  const chart = document.getElementById("chart");
+
   div.innerHTML = "";
+  chart.innerHTML = "";
 
   let ranking = [];
 
   teams.forEach(team => {
     const values = Object.values(team.throws);
-    const total = values.reduce((a,b) => a + b, 0) || 0;
+    const total = values.reduce((a,b)=>a+b,0) || 0;
     const avg = values.length ? (total / values.length).toFixed(2) : 0;
 
     ranking.push({ name: team.name, total });
@@ -223,10 +244,27 @@ function calculateResults() {
     `;
   });
 
-  ranking.sort((a,b) => a.total - b.total);
+  // SORTIEREN (WICHTIG!)
+  ranking.sort((a,b)=>a.total - b.total);
 
+  // MAX für Grafik
+  const max = Math.max(...ranking.map(r=>r.total), 1);
+
+  // CHART
+  ranking.forEach(r => {
+    const width = (r.total / max) * 100;
+
+    chart.innerHTML += `
+      <div>
+        ${r.name} (${r.total})
+        <div class="bar" style="width:${width}%"></div>
+      </div>
+    `;
+  });
+
+  // GEWINNER
   if (ranking.length > 0) {
-    div.innerHTML += `<h2>🏆 Gewinner: ${ranking[0].name}</h2>`;
+    chart.innerHTML += `<h2>🏆 Gewinner: ${ranking[0].name}</h2>`;
   }
 }
 
