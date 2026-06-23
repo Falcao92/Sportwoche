@@ -9,6 +9,7 @@ body { font-family: Arial; margin: 20px; }
 input, button { margin: 5px; padding: 5px; }
 .card { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
 .admin { background: #ffe0e0; padding: 10px; }
+.small { font-size: 12px; color: #666; }
 </style>
 
 </head>
@@ -16,22 +17,26 @@ input, button { margin: 5px; padding: 5px; }
 
 <h1>Boßeln Turnier</h1>
 
-<button onclick="toggleAdmin()">🔑 Admin aktivieren</button>
+<button onclick="toggleAdmin()">🔑 Admin umschalten</button>
 
 <div id="adminArea" style="display:none;" class="admin">
 <h2>Team anlegen</h2>
 <input id="teamName" placeholder="Teamname">
-<input id="members" placeholder="Mitglieder (Komma getrennt)">
-<button onclick="addTeam()">Hinzufügen</button>
+<br>
 
-<h2>Paarungen</h2>
-<button onclick="generateMatches()">Zufällige Spiele</button>
+<input id="playerInput" placeholder="Spielername">
+<button onclick="addPlayerInput()">Spieler hinzufügen</button>
+
+<div id="playerList"></div>
+
+<button onclick="addTeam()">Team speichern</button>
 </div>
 
 <h2>Teams</h2>
 <div id="teams"></div>
 
 <h2>Spiele</h2>
+<button onclick="generateMatches()">Zufällige Spiele</button>
 <div id="matches"></div>
 
 <h2>Ergebnisse</h2>
@@ -40,7 +45,9 @@ input, button { margin: 5px; padding: 5px; }
 <script>
 let teams = JSON.parse(localStorage.getItem("teams")) || [];
 let matches = JSON.parse(localStorage.getItem("matches")) || [];
+
 let admin = false;
+let tempPlayers = [];
 
 // ADMIN
 function toggleAdmin() {
@@ -48,20 +55,65 @@ function toggleAdmin() {
   document.getElementById("adminArea").style.display = admin ? "block" : "none";
 }
 
-// TEAM
-function addTeam() {
-  const name = document.getElementById("teamName").value;
-  const members = document.getElementById("members").value.split(",");
-
+// TEMP SPIELER HINZUFÜGEN
+function addPlayerInput() {
+  const input = document.getElementById("playerInput");
+  const name = input.value.trim();
   if (!name) return;
 
-  teams.push({ name, members, throws: {} });
+  // einzigartig machen
+  tempPlayers.push({
+    name: name,
+    id: name + "_" + Date.now()
+  });
+
+  input.value = "";
+  renderTempPlayers();
+}
+
+function renderTempPlayers() {
+  const div = document.getElementById("playerList");
+  div.innerHTML = "";
+
+  tempPlayers.forEach((p, i) => {
+    div.innerHTML += `
+      <div>
+        ${p.name}
+        <button onclick="removeTempPlayer(${i})">❌</button>
+      </div>
+    `;
+  });
+}
+
+function removeTempPlayer(i) {
+  tempPlayers.splice(i, 1);
+  renderTempPlayers();
+}
+
+// TEAM ERSTELLEN
+function addTeam() {
+  const name = document.getElementById("teamName").value.trim();
+  if (!name || tempPlayers.length === 0) return;
+
+  teams.push({
+    name,
+    members: [...tempPlayers],
+    throws: {}
+  });
+
+  document.getElementById("teamName").value = "";
+  tempPlayers = [];
+  renderTempPlayers();
 
   saveData();
   renderTeams();
+}
 
-  document.getElementById("teamName").value = "";
-  document.getElementById("members").value = "";
+// TEAM LÖSCHEN
+function deleteTeam(index) {
+  teams.splice(index, 1);
+  saveData();
+  renderTeams();
 }
 
 // SPEICHERN
@@ -75,16 +127,21 @@ function renderTeams() {
   const div = document.getElementById("teams");
   div.innerHTML = "";
 
-  teams.forEach((team, i) => {
+  teams.forEach((team, tIndex) => {
     let html = `<div class="card">
-      <b>${team.name}</b><br>
-      Mitglieder: ${team.members.join(", ")}<br><br>`;
+      <b>${team.name}</b>
+      ${admin ? `<button onclick="deleteTeam(${tIndex})">🗑️</button>` : ""}
+      <br><br>`;
 
-    team.members.forEach(member => {
-      const val = team.throws[member] || "";
-      html += `${member}: <input type="number" value="${val}"
+    team.members.forEach(player => {
+      const val = team.throws[player.id] || "";
+      html += `
+        ${player.name}: 
+        <input type="number" value="${val}"
         ${!admin ? "disabled" : ""}
-        onchange="setThrow(${i}, '${member}', this.value)"> <br>`;
+        onchange="setThrow(${tIndex}, '${player.id}', this.value)">
+        <br>
+      `;
     });
 
     html += "</div>";
@@ -95,8 +152,8 @@ function renderTeams() {
 }
 
 // WÜRFE
-function setThrow(teamIndex, member, value) {
-  teams[teamIndex].throws[member] = Number(value);
+function setThrow(teamIndex, playerId, value) {
+  teams[teamIndex].throws[playerId] = Number(value);
   saveData();
   calculateResults();
 }
@@ -131,13 +188,15 @@ function renderMatches() {
   div.innerHTML = "";
 
   matches.forEach((m, i) => {
-    div.innerHTML += `<div class="card">
-      ${m.a} vs ${m.b}<br>
-      Startzeit: 
-      <input type="time" value="${m.start}"
-      ${!admin ? "disabled" : ""}
-      onchange="setStart(${i}, this.value)">
-    </div>`;
+    div.innerHTML += `
+      <div class="card">
+        ${m.a} vs ${m.b}<br>
+        Startzeit:
+        <input type="time" value="${m.start || ""}"
+          ${!admin ? "disabled" : ""}
+          onchange="setStart(${i}, this.value)">
+      </div>
+    `;
   });
 }
 
@@ -155,11 +214,13 @@ function calculateResults() {
 
     ranking.push({ name: team.name, total });
 
-    div.innerHTML += `<div class="card">
-      <b>${team.name}</b><br>
-      Gesamtwürfe: ${total}<br>
-      Durchschnitt: ${avg}
-    </div>`;
+    div.innerHTML += `
+      <div class="card">
+        <b>${team.name}</b><br>
+        Gesamtwürfe: ${total}<br>
+        Durchschnitt: ${avg}
+      </div>
+    `;
   });
 
   ranking.sort((a,b) => a.total - b.total);
