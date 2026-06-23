@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Boßeln Turnier</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    input, button { margin: 5px; padding: 5px; }
+    .card { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<h1>Boßeln Turnier Verwaltung</h1>
+
+<h2>Team anlegen</h2>
+<input id="teamName" placeholder="Teamname">
+<input id="members" placeholder="Mitglieder (Komma getrennt)">
+<button onclick="addTeam()">Hinzufügen</button>
+
+<div id="teams"></div>
+
+<h2>Paarungen</h2>
+<button onclick="generateMatches()">Zufällige Spiele</button>
+<div id="matches"></div>
+
+<h2>Ergebnisse</h2>
+<div id="results"></div>
+
+<script>
+let teams = [];
+let matches = [];
+
+function addTeam() {
+  const name = document.getElementById("teamName").value;
+  const members = document.getElementById("members").value.split(",");
+
+  if (!name) return;
+
+  teams.push({
+    name,
+    members,
+    throws: {}
+  });
+
+  document.getElementById("teamName").value = "";
+  document.getElementById("members").value = "";
+  renderTeams();
+}
+
+function renderTeams() {
+  const div = document.getElementById("teams");
+  div.innerHTML = "";
+
+  teams.forEach((team, i) => {
+    let html = `<div class="card">
+      <b>${team.name}</b><br>
+      Mitglieder: ${team.members.join(", ")}<br><br>
+      Würfe eingeben:<br>`;
+
+    team.members.forEach(member => {
+      html += `${member}: <input type="number" onchange="setThrow(${i}, '${member}', this.value)"> <br>`;
+    });
+
+    html += "</div>";
+    div.innerHTML += html;
+  });
+
+  calculateResults();
+}
+
+function setThrow(teamIndex, member, value) {
+  teams[teamIndex].throws[member] = Number(value);
+  calculateResults();
+}
+
+function generateMatches() {
+  const shuffled = [...teams].sort(() => Math.random() - 0.5);
+  matches = [];
+
+  for (let i = 0; i < shuffled.length; i += 2) {
+    if (shuffled[i + 1]) {
+      matches.push({
+        a: shuffled[i].name,
+        b: shuffled[i + 1].name,
+        start: new Date().toLocaleTimeString()
+      });
+    }
+  }
+
+  renderMatches();
+}
+
+function renderMatches() {
+  const div = document.getElementById("matches");
+  div.innerHTML = "";
+
+  matches.forEach(m => {
+    div.innerHTML += `<div class="card">
+      ${m.a} vs ${m.b}<br>
+      Startzeit: ${m.start}
+    </div>`;
+  });
+}
+
+function calculateResults() {
+  const div = document.getElementById("results");
+  div.innerHTML = "";
+
+  let ranking = [];
+
+  teams.forEach(team => {
+    const values = Object.values(team.throws);
+    const total = values.reduce((a,b) => a + b, 0) || 0;
+    const avg = values.length ? (total / values.length).toFixed(2) : 0;
+
+    ranking.push({ name: team.name, total });
+
+    div.innerHTML += `<div class="card">
+      <b>${team.name}</b><br>
+      Gesamtwürfe: ${total}<br>
+      Durchschnitt: ${avg}
+    </div>`;
+  });
+
+  // Gewinner ermitteln
+  ranking.sort((a,b) => a.total - b.total);
+
+  if (ranking.length > 0) {
+    div.innerHTML += `<h2>🏆 Gewinner: ${ranking[0].name}</h2>`;
+  }
+}
+</script>
+
+</body>
+</html>
