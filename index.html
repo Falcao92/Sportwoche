@@ -1,53 +1,76 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Boßeln Turnier</title>
-  <style>
-    body { font-family: Arial; margin: 20px; }
-    input, button { margin: 5px; padding: 5px; }
-    .card { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
-  </style>
+<meta charset="UTF-8">
+<title>Boßeln Turnier</title>
+
+<style>
+body { font-family: Arial; margin: 20px; }
+input, button { margin: 5px; padding: 5px; }
+.card { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+.admin { background: #ffe0e0; padding: 10px; }
+</style>
+
 </head>
 <body>
 
-<h1>Boßeln Turnier Verwaltung</h1>
+<h1>Boßeln Turnier</h1>
 
+<button onclick="toggleAdmin()">🔑 Admin aktivieren</button>
+
+<div id="adminArea" style="display:none;" class="admin">
 <h2>Team anlegen</h2>
 <input id="teamName" placeholder="Teamname">
 <input id="members" placeholder="Mitglieder (Komma getrennt)">
 <button onclick="addTeam()">Hinzufügen</button>
 
-<div id="teams"></div>
-
 <h2>Paarungen</h2>
 <button onclick="generateMatches()">Zufällige Spiele</button>
+</div>
+
+<h2>Teams</h2>
+<div id="teams"></div>
+
+<h2>Spiele</h2>
 <div id="matches"></div>
 
 <h2>Ergebnisse</h2>
 <div id="results"></div>
 
 <script>
-let teams = [];
-let matches = [];
+let teams = JSON.parse(localStorage.getItem("teams")) || [];
+let matches = JSON.parse(localStorage.getItem("matches")) || [];
+let admin = false;
 
+// ADMIN
+function toggleAdmin() {
+  admin = !admin;
+  document.getElementById("adminArea").style.display = admin ? "block" : "none";
+}
+
+// TEAM
 function addTeam() {
   const name = document.getElementById("teamName").value;
   const members = document.getElementById("members").value.split(",");
 
   if (!name) return;
 
-  teams.push({
-    name,
-    members,
-    throws: {}
-  });
+  teams.push({ name, members, throws: {} });
+
+  saveData();
+  renderTeams();
 
   document.getElementById("teamName").value = "";
   document.getElementById("members").value = "";
-  renderTeams();
 }
 
+// SPEICHERN
+function saveData() {
+  localStorage.setItem("teams", JSON.stringify(teams));
+  localStorage.setItem("matches", JSON.stringify(matches));
+}
+
+// TEAMS ANZEIGE
 function renderTeams() {
   const div = document.getElementById("teams");
   div.innerHTML = "";
@@ -55,11 +78,13 @@ function renderTeams() {
   teams.forEach((team, i) => {
     let html = `<div class="card">
       <b>${team.name}</b><br>
-      Mitglieder: ${team.members.join(", ")}<br><br>
-      Würfe eingeben:<br>`;
+      Mitglieder: ${team.members.join(", ")}<br><br>`;
 
     team.members.forEach(member => {
-      html += `${member}: <input type="number" onchange="setThrow(${i}, '${member}', this.value)"> <br>`;
+      const val = team.throws[member] || "";
+      html += `${member}: <input type="number" value="${val}"
+        ${!admin ? "disabled" : ""}
+        onchange="setThrow(${i}, '${member}', this.value)"> <br>`;
     });
 
     html += "</div>";
@@ -69,11 +94,14 @@ function renderTeams() {
   calculateResults();
 }
 
+// WÜRFE
 function setThrow(teamIndex, member, value) {
   teams[teamIndex].throws[member] = Number(value);
+  saveData();
   calculateResults();
 }
 
+// MATCHES
 function generateMatches() {
   const shuffled = [...teams].sort(() => Math.random() - 0.5);
   matches = [];
@@ -83,26 +111,37 @@ function generateMatches() {
       matches.push({
         a: shuffled[i].name,
         b: shuffled[i + 1].name,
-        start: new Date().toLocaleTimeString()
+        start: ""
       });
     }
   }
 
+  saveData();
   renderMatches();
 }
 
+function setStart(index, value) {
+  matches[index].start = value;
+  saveData();
+}
+
+// MATCH ANZEIGE
 function renderMatches() {
   const div = document.getElementById("matches");
   div.innerHTML = "";
 
-  matches.forEach(m => {
+  matches.forEach((m, i) => {
     div.innerHTML += `<div class="card">
       ${m.a} vs ${m.b}<br>
-      Startzeit: ${m.start}
+      Startzeit: 
+      <input type="time" value="${m.start}"
+      ${!admin ? "disabled" : ""}
+      onchange="setStart(${i}, this.value)">
     </div>`;
   });
 }
 
+// ERGEBNISSE
 function calculateResults() {
   const div = document.getElementById("results");
   div.innerHTML = "";
@@ -123,13 +162,16 @@ function calculateResults() {
     </div>`;
   });
 
-  // Gewinner ermitteln
   ranking.sort((a,b) => a.total - b.total);
 
   if (ranking.length > 0) {
     div.innerHTML += `<h2>🏆 Gewinner: ${ranking[0].name}</h2>`;
   }
 }
+
+// INIT
+renderTeams();
+renderMatches();
 </script>
 
 </body>
