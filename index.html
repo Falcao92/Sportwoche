@@ -209,14 +209,17 @@ function renderTeams() {
       
       <div class="player-grid">`;
 
-    team.members.forEach(p=>{
-      const val = team.throws[p.id] || "";
-      html += `<div class="player">
-        ${p.name}<br>
-        <input type="number" value="${val}"
-        ${!admin?"disabled":""}
-        onchange="setThrow(${i}, '${p.id}', this.value)">
-      </div>`;
+team.members.forEach((p, pIndex)=>{      
+html += `
+  <div class="player">
+    ${p.name}
+    ${admin ? `<button onclick="removePlayer(${i}, ${pIndex})">❌</button>` : ""}
+    <br>
+    <input type="number" value="${val}"
+    ${!admin?"disabled":""}
+    onchange="setThrow(${i}, '${p.id}', this.value)">
+  </div>`;
+
     });
 
     html += "</div></div>";
@@ -273,7 +276,9 @@ function renderMatches() {
 
   matches.forEach((m,i)=>{
     div.innerHTML += `<div class="card">
-      ${m.teams.join(" vs ")}<br>
+      ${m.teams.join(" vs ")}
+${admin ? `<button onclick="deleteMatch(${i})">🗑️</button>` : ""}
+<br>
       <input type="time" value="${m.start}"
       ${!admin?"disabled":""}
       onchange="setStart(${i},this.value)">
@@ -318,6 +323,29 @@ function calculateResults() {
     chart.innerHTML += `<h2>🏆 ${ranking[0].name}</h2>`;
   }
 }
+///löschen von Paarungen
+
+  function deleteMatch(index) {
+  matches.splice(index, 1);
+  saveData();
+  renderMatches();
+}
+
+
+  /////spieler löschen
+  function removePlayer(teamIndex, playerIndex) {
+  const player = teams[teamIndex].members[playerIndex];
+
+  // Würfe entfernen
+  delete teams[teamIndex].throws[player.id];
+
+  // Spieler entfernen
+  teams[teamIndex].members.splice(playerIndex, 1);
+
+  saveData();
+  renderTeams();
+}
+
 
 // INIT
 renderTeams();
