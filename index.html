@@ -5,47 +5,126 @@
 <title>Boßeln Turnier</title>
 
 <style>
-body { font-family: Arial; margin: 20px; }
-input, button { margin: 5px; padding: 5px; }
-.card { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
-.admin { background: #ffe0e0; padding: 10px; }
+body {
+  font-family: Arial;
+  margin: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #1e7f3a, #0b3d1f);
+}
 
+/* HEADER */
+.header {
+  text-align: center;
+  padding: 20px;
+}
+
+.logo {
+  width: 120px;
+}
+
+/* BUTTON */
+button {
+  padding: 6px 10px;
+  margin: 5px;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  background: #2ecc71;
+  color: white;
+}
+
+button:hover {
+  background: #27ae60;
+}
+
+/* CARDS */
+.card {
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  padding: 15px;
+  margin: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  transition: 0.2s;
+}
+
+.card:hover {
+  transform: scale(1.02);
+}
+
+/* GRID */
+.container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* SPIELER */
+.player-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.player {
+  background: rgba(255,255,255,0.15);
+  padding: 6px;
+  border-radius: 6px;
+  transition: 0.2s;
+}
+
+.player:hover {
+  transform: scale(1.1);
+  background: rgba(255,255,255,0.25);
+}
+
+/* RANGLISTE */
 .bar {
   height: 20px;
-  background: steelblue;
+  background: limegreen;
   margin-top: 5px;
+  border-radius: 4px;
+}
+
+.admin {
+  padding: 10px;
+  background: rgba(255,0,0,0.2);
 }
 </style>
 
 </head>
 <body>
 
-<h1>Boßeln Turnier</h1>
+<div class="header">
+  <img src="logo.png" class="logo">
+  <h1>Boßeln Turnier</h1>
+</div>
 
 <button onclick="toggleAdmin()">🔑 Admin</button>
 
 <div id="adminArea" style="display:none;" class="admin">
-<h2>Team anlegen</h2>
+  <h2>Team anlegen</h2>
 
-<input id="teamName" placeholder="Teamname"><br>
+  <input id="teamName" placeholder="Teamname">
 
-<input id="playerInput" placeholder="Spielername">
-<button onclick="addPlayerInput()">+ Spieler</button>
+  <br><br>
 
-<div id="playerList"></div>
+  <input id="playerInput" placeholder="Spielername">
+  <button onclick="addPlayerInput()">+ Spieler</button>
 
-<button onclick="addTeam()">Team speichern</button>
+  <div id="playerList"></div>
+
+  <button onclick="addTeam()">Team speichern</button>
 </div>
 
 <h2>Teams</h2>
-<div id="teams"></div>
+<div id="teams" class="container"></div>
 
 <h2>Spiele</h2>
 <button onclick="generateMatches()">Zufällige Spiele</button>
-<div id="matches"></div>
+<div id="matches" class="container"></div>
 
 <h2>Ergebnisse</h2>
-<div id="results"></div>
+<div id="results" class="container"></div>
 
 <h2>📊 Rangliste</h2>
 <div id="chart"></div>
@@ -57,24 +136,19 @@ let matches = JSON.parse(localStorage.getItem("matches")) || [];
 let admin = false;
 let tempPlayers = [];
 
-// ADMIN
 function toggleAdmin() {
   admin = !admin;
   document.getElementById("adminArea").style.display = admin ? "block" : "none";
 }
 
-// SPIELER TEMP
+// SPIELER
 function addPlayerInput() {
-  const input = document.getElementById("playerInput");
-  const name = input.value.trim();
+  const name = document.getElementById("playerInput").value.trim();
   if (!name) return;
 
-  tempPlayers.push({
-    name,
-    id: name + "_" + Date.now()
-  });
+  tempPlayers.push({ name, id: name + "_" + Date.now() });
 
-  input.value = "";
+  document.getElementById("playerInput").value = "";
   renderTempPlayers();
 }
 
@@ -82,24 +156,20 @@ function renderTempPlayers() {
   const div = document.getElementById("playerList");
   div.innerHTML = "";
 
-  tempPlayers.forEach((p, i) => {
-    div.innerHTML += `
-      <div>
-        ${p.name}
-        <button onclick="removeTempPlayer(${i})">❌</button>
-      </div>
-    `;
+  tempPlayers.forEach((p,i)=>{
+    div.innerHTML += `${p.name} <button onclick="removeTempPlayer(${i})">❌</button><br>`;
   });
 }
 
 function removeTempPlayer(i) {
-  tempPlayers.splice(i, 1);
+  tempPlayers.splice(i,1);
   renderTempPlayers();
 }
 
 // TEAM
 function addTeam() {
   const name = document.getElementById("teamName").value.trim();
+
   if (!name || tempPlayers.length === 0) return;
 
   teams.push({
@@ -116,40 +186,40 @@ function addTeam() {
   renderTeams();
 }
 
-// TEAM LÖSCHEN
 function deleteTeam(i) {
-  teams.splice(i, 1);
+  teams.splice(i,1);
   saveData();
   renderTeams();
 }
 
-// SPEICHERN
 function saveData() {
   localStorage.setItem("teams", JSON.stringify(teams));
   localStorage.setItem("matches", JSON.stringify(matches));
 }
 
-// TEAMS
+// RENDER TEAMS
 function renderTeams() {
   const div = document.getElementById("teams");
   div.innerHTML = "";
 
-  teams.forEach((team, i) => {
+  teams.forEach((team, i)=>{
     let html = `<div class="card">
       <b>${team.name}</b>
-      ${admin ? `<button onclick="deleteTeam(${i})">🗑️</button>` : ""}
-      <br><br>`;
+      ${admin ? `<button onclick="deleteTeam(${i})">🗑️</button>`:""}
+      
+      <div class="player-grid">`;
 
-    team.members.forEach(p => {
+    team.members.forEach(p=>{
       const val = team.throws[p.id] || "";
-      html += `${p.name}: 
+      html += `<div class="player">
+        ${p.name}<br>
         <input type="number" value="${val}"
-        ${!admin ? "disabled":""}
+        ${!admin?"disabled":""}
         onchange="setThrow(${i}, '${p.id}', this.value)">
-        <br>`;
+      </div>`;
     });
 
-    html += "</div>";
+    html += "</div></div>";
     div.innerHTML += html;
   });
 
@@ -163,7 +233,7 @@ function setThrow(teamIndex, playerId, value) {
   calculateResults();
 }
 
-// MATCHES mit 3er Logik
+// MATCHES (inkl 3er)
 function generateMatches() {
   const shuffled = [...teams].sort(() => Math.random() - 0.5);
   matches = [];
@@ -171,21 +241,18 @@ function generateMatches() {
   let i = 0;
 
   while (i < shuffled.length) {
-    if ((shuffled.length - i) === 3) {
-      matches.push({
-        teams: [
-          shuffled[i].name,
-          shuffled[i+1].name,
-          shuffled[i+2].name
-        ],
-        start: ""
-      });
+    if (shuffled.length - i === 3) {
+      matches.push({ teams:[
+        shuffled[i].name,
+        shuffled[i+1].name,
+        shuffled[i+2].name
+      ], start:""});
       break;
     } else {
-      matches.push({
-        teams: [shuffled[i].name, shuffled[i+1].name],
-        start: ""
-      });
+      matches.push({ teams:[
+        shuffled[i].name,
+        shuffled[i+1].name
+      ], start:""});
       i += 2;
     }
   }
@@ -194,77 +261,61 @@ function generateMatches() {
   renderMatches();
 }
 
-// STARTZEIT
-function setStart(i, value) {
-  matches[i].start = value;
+function setStart(i, val) {
+  matches[i].start = val;
   saveData();
 }
 
-// MATCH ANZEIGE
+// MATCH RENDER
 function renderMatches() {
   const div = document.getElementById("matches");
   div.innerHTML = "";
 
-  matches.forEach((m, i) => {
-    div.innerHTML += `
-      <div class="card">
-        ${m.teams.join(" vs ")}<br>
-        Startzeit:
-        <input type="time" value="${m.start || ""}"
-        ${!admin ? "disabled":""}
-        onchange="setStart(${i}, this.value)">
-      </div>
-    `;
+  matches.forEach((m,i)=>{
+    div.innerHTML += `<div class="card">
+      ${m.teams.join(" vs ")}<br>
+      <input type="time" value="${m.start}"
+      ${!admin?"disabled":""}
+      onchange="setStart(${i},this.value)">
+    </div>`;
   });
 }
 
-// ERGEBNISSE + CHART
+// ERGEBNIS + CHART
 function calculateResults() {
-  const div = document.getElementById("results");
+  const res = document.getElementById("results");
   const chart = document.getElementById("chart");
 
-  div.innerHTML = "";
-  chart.innerHTML = "";
+  res.innerHTML="";
+  chart.innerHTML="";
 
-  let ranking = [];
+  let ranking=[];
 
-  teams.forEach(team => {
-    const values = Object.values(team.throws);
-    const total = values.reduce((a,b)=>a+b,0) || 0;
-    const avg = values.length ? (total / values.length).toFixed(2) : 0;
+  teams.forEach(t=>{
+    const vals = Object.values(t.throws);
+    const total = vals.reduce((a,b)=>a+b,0)||0;
+    const avg = vals.length ? (total/vals.length).toFixed(2):0;
 
-    ranking.push({ name: team.name, total });
+    ranking.push({name:t.name,total});
 
-    div.innerHTML += `
-      <div class="card">
-        <b>${team.name}</b><br>
-        Gesamtwürfe: ${total}<br>
-        Durchschnitt: ${avg}
-      </div>
-    `;
+    res.innerHTML += `<div class="card">
+      ${t.name}<br>
+      Gesamt: ${total}<br>
+      Ø: ${avg}
+    </div>`;
   });
 
-  // SORTIEREN (WICHTIG!)
-  ranking.sort((a,b)=>a.total - b.total);
+  ranking.sort((a,b)=>a.total-b.total);
 
-  // MAX für Grafik
-  const max = Math.max(...ranking.map(r=>r.total), 1);
+  const max = Math.max(...ranking.map(r=>r.total),1);
 
-  // CHART
-  ranking.forEach(r => {
-    const width = (r.total / max) * 100;
-
-    chart.innerHTML += `
-      <div>
-        ${r.name} (${r.total})
-        <div class="bar" style="width:${width}%"></div>
-      </div>
-    `;
+  ranking.forEach(r=>{
+    chart.innerHTML += `${r.name} (${r.total})
+      <div class="bar" style="width:${(r.total/max)*100}%"></div>`;
   });
 
-  // GEWINNER
   if (ranking.length > 0) {
-    chart.innerHTML += `<h2>🏆 Gewinner: ${ranking[0].name}</h2>`;
+    chart.innerHTML += `<h2>🏆 ${ranking[0].name}</h2>`;
   }
 }
 
